@@ -1,0 +1,743 @@
+diff -rc ./choose.c \tmp\tgif-4.1.15/choose.c
+*** ./choose.c	Sun Jun  6 11:51:04 1999
+--- \tmp\tgif-4.1.15/choose.c	Fri May 28 10:40:54 1999
+***************
+*** 126,136 ****
+  #ifdef sequent
+     psz_result = getwd(buf);
+  #else /* ~sequent */
+- #ifdef __EMX__      
+-    psz_result = _getcwd2(buf, buf_sz);
+- #else /* __EMX__ */
+     psz_result = getcwd(buf, buf_sz);
+- #endif /* __EMX__ */
+  #endif /* sequent */
+  #endif /* luna88k */
+  #endif /* NeXT */
+--- 126,132 ----
+diff -rc ./const.h \tmp\tgif-4.1.15/const.h
+*** ./const.h	Sun Jun  6 13:14:56 1999
+--- \tmp\tgif-4.1.15/const.h	Fri May 28 08:28:54 1999
+***************
+*** 88,102 ****
+  #define DIR_SEP_STR "/"
+  #endif /* WIN32 */
+  
+- #ifdef __EMX__
+- #define PATH_SEP ';'
+- #define PATH_SEP_STR ";"
+- #else /* ~__EMX__ */
+- #define PATH_SEP ':'
+- #define PATH_SEP_STR ";"
+- #endif /* __EMX__ */
+- 
+- 
+  #define SINGLECOLOR (FALSE)
+  #define MULTICOLOR (TRUE)
+  
+--- 88,93 ----
+diff -rc ./exec.c \tmp\tgif-4.1.15/exec.c
+*** ./exec.c	Sun Jun  6 14:17:38 1999
+--- \tmp\tgif-4.1.15/exec.c	Sun May 16 13:05:20 1999
+***************
+*** 8644,8650 ****
+     if (strcmp(spec, "-") != 0) {
+        char fname[MAXPATHLENGTH];
+  
+!       if (abspath(spec)) {
+           strcpy(fname, spec);
+        } else {
+           sprintf(fname, "%s%c%s", bootDir, DIR_SEP, spec);
+--- 8644,8650 ----
+     if (strcmp(spec, "-") != 0) {
+        char fname[MAXPATHLENGTH];
+  
+!       if (*spec == DIR_SEP) {
+           strcpy(fname, spec);
+        } else {
+           sprintf(fname, "%s%c%s", bootDir, DIR_SEP, spec);
+diff -rc ./file.c \tmp\tgif-4.1.15/file.c
+*** ./file.c	Sun Jun  6 15:40:22 1999
+--- \tmp\tgif-4.1.15/file.c	Fri May 28 10:57:44 1999
+***************
+*** 497,503 ****
+     if (*szPath == '\0') {
+        /* no program specified, assume it's okay */
+        return TRUE;
+!    } else if (abspath(szPath)) {
+        if (UtilPathExists(szPath)) return TRUE;
+     } else {
+        char *env=NULL;
+--- 497,503 ----
+     if (*szPath == '\0') {
+        /* no program specified, assume it's okay */
+        return TRUE;
+!    } else if (*szPath == DIR_SEP) {
+        if (UtilPathExists(szPath)) return TRUE;
+     } else {
+        char *env=NULL;
+***************
+*** 509,528 ****
+        }
+        env = UtilStrDup(psz);
+        if (env == NULL) FailAllocMessage();
+- #ifdef __EMX__
+-       /* look for a script (*.cmd) or an executable (*.exe) */
+-       for (psz=strtok(env, ";"); psz != NULL; psz=strtok(NULL, ";")) {
+- 	sprintf(gszMsgBox, "%s%c%s.cmd", psz, DIR_SEP, szPath);
+- 	if (UtilPathExists(gszMsgBox)) {
+- 	  UtilFree(env);
+- 	  return TRUE;
+- 	}
+- 	sprintf(gszMsgBox, "%s%c%s.exe", psz, DIR_SEP, szPath);
+- #else
+        for (psz=strtok(env, ":"); psz != NULL; psz=strtok(NULL, ":")) {
+! 	sprintf(gszMsgBox, "%s%c%s", psz, DIR_SEP, szPath);
+! #endif
+! 	if (UtilPathExists(gszMsgBox)) {
+              UtilFree(env);
+              return TRUE;
+           }
+--- 509,517 ----
+        }
+        env = UtilStrDup(psz);
+        if (env == NULL) FailAllocMessage();
+        for (psz=strtok(env, ":"); psz != NULL; psz=strtok(NULL, ":")) {
+!          sprintf(gszMsgBox, "%s%c%s", psz, DIR_SEP, szPath);
+!          if (UtilPathExists(gszMsgBox)) {
+              UtilFree(env);
+              return TRUE;
+           }
+***************
+*** 531,541 ****
+     }
+     if (msg == NULL || *msg == '\0') {
+        sprintf(gszMsgBox, "Cannot find '%s'%s.\n\n%s '%s' anyway?",
+!             szPath, (abspath(szPath) ? "" : " in the PATH"),
+              "Would you like to execute", cmd);
+     } else {
+        sprintf(gszMsgBox, "Cannot find '%s'%s.  %s\n\n%s '%s' anyway?",
+!             szPath, (abspath(szPath) ? "" : " in the PATH"), msg,
+              "Would you like to execute", cmd);
+     }
+     return (MsgBox(gszMsgBox, TOOL_NAME, YNC_MB)==MB_ID_YES);
+--- 520,530 ----
+     }
+     if (msg == NULL || *msg == '\0') {
+        sprintf(gszMsgBox, "Cannot find '%s'%s.\n\n%s '%s' anyway?",
+!             szPath, (*szPath==DIR_SEP ? "" : " in the PATH"),
+              "Would you like to execute", cmd);
+     } else {
+        sprintf(gszMsgBox, "Cannot find '%s'%s.  %s\n\n%s '%s' anyway?",
+!             szPath, (*szPath==DIR_SEP ? "" : " in the PATH"), msg,
+              "Would you like to execute", cmd);
+     }
+     return (MsgBox(gszMsgBox, TOOL_NAME, YNC_MB)==MB_ID_YES);
+***************
+*** 1249,1255 ****
+              TOOL_NAME, INFO_MB);
+        return;
+     }
+!    if (abspath(new_file_name)) {
+        strcpy(new_full_name, new_file_name);
+     } else if (curDirIsLocal) {
+        sprintf(new_full_name, "%s%c%s", curDir, DIR_SEP, new_file_name);
+--- 1238,1244 ----
+              TOOL_NAME, INFO_MB);
+        return;
+     }
+!    if (*new_file_name == DIR_SEP) {
+        strcpy(new_full_name, new_file_name);
+     } else if (curDirIsLocal) {
+        sprintf(new_full_name, "%s%c%s", curDir, DIR_SEP, new_file_name);
+***************
+*** 3209,3215 ****
+           char *c_ptr1;
+  
+           while (*c_ptr==' ' || *c_ptr=='\t' || *c_ptr=='\n') c_ptr++;
+!          if (*c_ptr != '\0' && (c_ptr1=strchr(c_ptr, PATH_SEP)) != NULL) {
+              c_ptr = &c_ptr1[1];
+           }
+           ParseSymPath(c_ptr);
+--- 3198,3204 ----
+           char *c_ptr1;
+  
+           while (*c_ptr==' ' || *c_ptr=='\t' || *c_ptr=='\n') c_ptr++;
+!          if (*c_ptr != '\0' && (c_ptr1=strchr(c_ptr, ':')) != NULL) {
+              c_ptr = &c_ptr1[1];
+           }
+           ParseSymPath(c_ptr);
+***************
+*** 5943,5954 ****
+                 }
+                 Msg(gszMsgBox);
+              }
+- #ifdef __EMX__
+- 	    //as long as our os2pdf cannot handle redirection ...
+-             strcat(cmd, " ");
+- #else
+              strcat(cmd, " > ");
+- #endif
+              strcat(cmd, ps_file);
+              if (!ExecuteCmd(cmd)) {
+                 sprintf(gszMsgBox, "Cannot execute '%s', %s file not generated.",
+--- 5932,5938 ----
+diff -rc ./mainloop.c \tmp\tgif-4.1.15/mainloop.c
+*** ./mainloop.c	Sun Jun  6 14:36:00 1999
+--- \tmp\tgif-4.1.15/mainloop.c	Mon May 24 06:52:02 1999
+***************
+*** 567,573 ****
+  
+     if (buf == NULL) return FALSE;
+  
+!    for (c_ptr=strtok(buf, PATH_SEP); c_ptr != NULL; c_ptr=strtok(NULL, PATH_SEP)) {
+        int len=strlen(c_ptr);
+        char path[MAXPATHLENGTH+1];
+        FILE *fp;
+--- 567,573 ----
+  
+     if (buf == NULL) return FALSE;
+  
+!    for (c_ptr=strtok(buf, ":"); c_ptr != NULL; c_ptr=strtok(NULL, ":")) {
+        int len=strlen(c_ptr);
+        char path[MAXPATHLENGTH+1];
+        FILE *fp;
+***************
+*** 889,895 ****
+           }
+           Msg(gszMsgBox);
+  
+!          if (abspath(file_name)) {
+              strcpy(full_name, file_name);
+           } else {
+              sprintf(full_name, "%s%c%s", curDir, DIR_SEP, file_name);
+--- 889,895 ----
+           }
+           Msg(gszMsgBox);
+  
+!          if (*file_name == DIR_SEP) {
+              strcpy(full_name, file_name);
+           } else {
+              sprintf(full_name, "%s%c%s", curDir, DIR_SEP, file_name);
+***************
+*** 975,987 ****
+                 if (!foundGoodStateObject) PasteString(remote_buf);
+              } else {
+                 if (*gzipped_fname == '\0') {
+!                   if (abspath(file_name)) {
+                       strcpy(full_name, file_name);
+                    } else {
+                       sprintf(full_name, "%s%c%s", curDir, DIR_SEP, file_name);
+                    }
+                 } else {
+!                   if (abspath(gzipped_fname)) {
+                       strcpy(full_name, gzipped_fname);
+                    } else {
+                       sprintf(full_name, "%s%c%s", curDir, DIR_SEP,
+--- 975,987 ----
+                 if (!foundGoodStateObject) PasteString(remote_buf);
+              } else {
+                 if (*gzipped_fname == '\0') {
+!                   if (*file_name == DIR_SEP) {
+                       strcpy(full_name, file_name);
+                    } else {
+                       sprintf(full_name, "%s%c%s", curDir, DIR_SEP, file_name);
+                    }
+                 } else {
+!                   if (*gzipped_fname == DIR_SEP) {
+                       strcpy(full_name, gzipped_fname);
+                    } else {
+                       sprintf(full_name, "%s%c%s", curDir, DIR_SEP,
+Only in .: Makefile
+diff -rc ./menu.c \tmp\tgif-4.1.15/menu.c
+*** ./menu.c	Sun Jun  6 14:44:46 1999
+--- \tmp\tgif-4.1.15/menu.c	Mon May 24 11:34:36 1999
+***************
+*** 1913,1919 ****
+     strcat(s, DIR_SEP_STR);
+     if ((c_ptr=getenv("TGIFICON")) == NULL) {
+        if ((c_ptr=XGetDefault(mainDisplay,TOOL_NAME,"TGIFICON")) != NULL) {
+!          if (abspath(c_ptr)) {
+              strcpy(s, c_ptr);
+           } else {
+              strcat(s, c_ptr);
+--- 1913,1919 ----
+     strcat(s, DIR_SEP_STR);
+     if ((c_ptr=getenv("TGIFICON")) == NULL) {
+        if ((c_ptr=XGetDefault(mainDisplay,TOOL_NAME,"TGIFICON")) != NULL) {
+!          if (*c_ptr == DIR_SEP) {
+              strcpy(s, c_ptr);
+           } else {
+              strcat(s, c_ptr);
+***************
+*** 1924,1930 ****
+     } else if (((int)strlen(c_ptr)) >= 200) {
+        /* too long, must be an error */
+        strcat(s, iconFileName);
+!    } else if (abspath(c_ptr)) {
+        strcpy(s, c_ptr);
+     } else {
+        strcat(s, c_ptr);
+--- 1924,1930 ----
+     } else if (((int)strlen(c_ptr)) >= 200) {
+        /* too long, must be an error */
+        strcat(s, iconFileName);
+!    } else if (*c_ptr == DIR_SEP) {
+        strcpy(s, c_ptr);
+     } else {
+        strcat(s, c_ptr);
+diff -rc ./names.c \tmp\tgif-4.1.15/names.c
+*** ./names.c	Sun Jun  6 15:43:24 1999
+--- \tmp\tgif-4.1.15/names.c	Fri May 28 08:37:54 1999
+***************
+*** 121,127 ****
+     } else {
+        s2 = dir_str;
+     }
+!    for ( ; *s1 != '\0' && *s1 != PATH_SEP; s1++) {
+        if (*s1 == '\\') {
+           strcpy(s1, s1+1);
+        } else {
+--- 121,127 ----
+     } else {
+        s2 = dir_str;
+     }
+!    for ( ; *s1 != '\0' && *s1 != ':'; s1++) {
+        if (*s1 == '\\') {
+           strcpy(s1, s1+1);
+        } else {
+***************
+*** 129,135 ****
+        }
+     }
+     *s2 = '\0';
+!    if (*s1 == PATH_SEP) s1++;
+     return s1;
+  }
+  
+--- 129,135 ----
+        }
+     }
+     *s2 = '\0';
+!    if (*s1 == ':') s1++;
+     return s1;
+  }
+  
+***************
+*** 378,386 ****
+           return NULL;
+        }
+  #ifdef __EMX__
+!       if (path[strlen(path)-1] != DIR_SEP) 
+  #endif /* __EMX__ */
+- 	strcat(path, DIR_SEP_STR);
+     }
+  
+  #ifdef VMS
+--- 378,389 ----
+           return NULL;
+        }
+  #ifdef __EMX__
+!       if (path[strlen(path)-1] != DIR_SEP) {
+!          strcat(path, DIR_SEP_STR);
+!       }
+! #else /* ~__EMX__ */
+!       strcat(path, DIR_SEP_STR);
+  #endif /* __EMX__ */
+     }
+  
+  #ifdef VMS
+***************
+*** 460,471 ****
+  #endif /* VMS */
+        } else if (strcmp(d->d_name, ".") == 0) {
+           continue;
+- #ifdef __EMX__
+-       }
+- 	 else if (strlen(path)==3 && strcmp(d->d_name,"..")==0) {
+- 	   printf("OS/2: should give you some drive letters ...\n");
+- 	   continue;
+- #endif
+        } else {
+           sprintf(s, "%s%s", path, d->d_name);
+           if (stat(s, &stat_buf) != 0) {
+--- 463,468 ----
+***************
+*** 615,621 ****
+           char *c_ptr1;
+  
+           while (*c_ptr==' ' || *c_ptr=='\t' || *c_ptr=='\n') c_ptr++;
+!          if (*c_ptr != '\0' && (c_ptr1=strchr(c_ptr, PATH_SEP)) != NULL) {
+              int len=c_ptr1-c_ptr;
+  
+              strncpy(curDomainName, c_ptr, len);
+--- 612,618 ----
+           char *c_ptr1;
+  
+           while (*c_ptr==' ' || *c_ptr=='\t' || *c_ptr=='\n') c_ptr++;
+!          if (*c_ptr != '\0' && (c_ptr1=strchr(c_ptr, ':')) != NULL) {
+              int len=c_ptr1-c_ptr;
+  
+              strncpy(curDomainName, c_ptr, len);
+***************
+*** 786,800 ****
+              "Getting directory listing of '%s', please wait ...", cur_buf);
+        SetStringStatus(gszMsgBox);
+        XSync(mainDisplay, False);
+! #ifdef __EMX__
+!       {
+! 	char *p;
+! 	if ((p = strstr(cur_buf,"//")) != NULL) {
+! 	  memmove(p+1, p+2, strlen(p+2)+1);
+! 	//  printf("path sanitized: cd2:%s (modified)\n",cur_buf);
+! 	}
+!       }
+! #endif
+        if ((topOfDirLinkList=DirListing(cur_buf,
+              p_dninfo->ext_str, p_dninfo->other_ext_str)) == NULL) {
+           RestoreStatusStringsFromBuf(status_buf, one_line_status);
+--- 783,789 ----
+              "Getting directory listing of '%s', please wait ...", cur_buf);
+        SetStringStatus(gszMsgBox);
+        XSync(mainDisplay, False);
+! 
+        if ((topOfDirLinkList=DirListing(cur_buf,
+              p_dninfo->ext_str, p_dninfo->other_ext_str)) == NULL) {
+           RestoreStatusStringsFromBuf(status_buf, one_line_status);
+***************
+*** 920,933 ****
+     sprintf(win_name, "%s - %s", TOOL_NAME, TopStr);
+     selected_btn_id = Names(win_name, &selected_index,
+           selected_str, sizeof(selected_str), &dirNamesInfo);
+- #ifdef __EMX__
+-    {
+-      char *p;
+-      if ((p = strstr(selected_str,"//")) != NULL) 
+-        memmove(p+1, p+2, strlen(p+2)+1);
+-    }
+-    // printf("names.c, DirNames: selected_str(sanitized): %s\n",selected_str);
+- #endif
+     if (selected_btn_id == BUTTON_OK) {
+        *JustSetDir = FALSE;
+        strcpy(SelStr, selected_str);
+--- 909,914 ----
+***************
+*** 1205,1211 ****
+           memset(dsp_ptr, 0, sizeof(DspList));
+           tmpDomainName[i] = (char*)malloc((strlen(c_ptr)+1)*sizeof(char));
+           if (tmpDomainName[i] == NULL) FailAllocMessage();
+!          if ((c_ptr1=strchr(c_ptr, PATH_SEP)) != NULL) {
+              int len=c_ptr1-c_ptr;
+  
+              strncpy(dsp_ptr->itemstr, c_ptr, len);
+--- 1186,1192 ----
+           memset(dsp_ptr, 0, sizeof(DspList));
+           tmpDomainName[i] = (char*)malloc((strlen(c_ptr)+1)*sizeof(char));
+           if (tmpDomainName[i] == NULL) FailAllocMessage();
+!          if ((c_ptr1=strchr(c_ptr, ':')) != NULL) {
+              int len=c_ptr1-c_ptr;
+  
+              strncpy(dsp_ptr->itemstr, c_ptr, len);
+diff -rc ./page.c \tmp\tgif-4.1.15/page.c
+*** ./page.c	Sun Jun  6 14:55:06 1999
+--- \tmp\tgif-4.1.15/page.c	Tue May 11 06:23:12 1999
+***************
+*** 886,892 ****
+     if ((attr_ptr=FindAttrWithName(tgifObj, "template=", NULL)) != NULL) {
+        char file_name[MAXPATHLENGTH];
+  
+!       if (abspath(attr_ptr->attr_value.s)) {
+           UtilStrCpyN(file_name, sizeof(file_name), attr_ptr->attr_value.s);
+        } else {
+           sprintf(file_name, "%s%c%s", bootDir, DIR_SEP, attr_ptr->attr_value.s);
+--- 886,892 ----
+     if ((attr_ptr=FindAttrWithName(tgifObj, "template=", NULL)) != NULL) {
+        char file_name[MAXPATHLENGTH];
+  
+!       if (*attr_ptr->attr_value.s == DIR_SEP) {
+           UtilStrCpyN(file_name, sizeof(file_name), attr_ptr->attr_value.s);
+        } else {
+           sprintf(file_name, "%s%c%s", bootDir, DIR_SEP, attr_ptr->attr_value.s);
+diff -rc ./remote.c \tmp\tgif-4.1.15/remote.c
+*** ./remote.c	Sun Jun  6 15:50:46 1999
+--- \tmp\tgif-4.1.15/remote.c	Mon May 24 06:53:24 1999
+***************
+*** 1421,1427 ****
+     if (spec == NULL) FailAllocMessage();
+  
+     fname = spec;
+!    colon_ptr = strchr(fname, PATH_SEP);
+     while (fname != NULL) {
+        if (colon_ptr != NULL) *colon_ptr = '\0';
+        if (*fname != '\0') {
+--- 1421,1427 ----
+     if (spec == NULL) FailAllocMessage();
+  
+     fname = spec;
+!    colon_ptr = strchr(fname, ':');
+     while (fname != NULL) {
+        if (colon_ptr != NULL) *colon_ptr = '\0';
+        if (*fname != '\0') {
+***************
+*** 1476,1484 ****
+           }
+        }
+        if (colon_ptr == NULL) break;
+!       *colon_ptr++ = PATH_SEP;
+        fname = colon_ptr;
+!       colon_ptr = strchr(fname, PATH_SEP);
+     }
+     UtilFree(spec);
+     if (debugRemote) DumpMailCapInfo();
+--- 1476,1484 ----
+           }
+        }
+        if (colon_ptr == NULL) break;
+!       *colon_ptr++ = ':';
+        fname = colon_ptr;
+!       colon_ptr = strchr(fname, ':');
+     }
+     UtilFree(spec);
+     if (debugRemote) DumpMailCapInfo();
+diff -rc ./setup.c \tmp\tgif-4.1.15/setup.c
+*** ./setup.c	Sun Jun  6 15:07:52 1999
+--- \tmp\tgif-4.1.15/setup.c	Wed May 19 18:04:40 1999
+***************
+*** 232,241 ****
+  char	homeDir[MAXPATHLENGTH];
+  char	tgifDir[MAXPATHLENGTH];
+  
+- #ifdef __EMX__
+- char    TMP_DIR[MAXPATHLENGTH];
+- #endif
+- 
+  int	symPathNumEntries = INVALID;
+  char	* * symPath=NULL;
+  
+--- 232,237 ----
+***************
+*** 785,791 ****
+  
+     *pPixmap = *pPixmapMask = None;
+     if (c_ptr == NULL) return FALSE;
+!    if (abspath(c_ptr)) {
+        strncpy(fname, c_ptr, sizeof(fname));
+     } else {
+        sprintf(fname, "%s%c%s", drawPath, DIR_SEP, c_ptr);
+--- 781,787 ----
+  
+     *pPixmap = *pPixmapMask = None;
+     if (c_ptr == NULL) return FALSE;
+!    if (*c_ptr == DIR_SEP) {
+        strncpy(fname, c_ptr, sizeof(fname));
+     } else {
+        sprintf(fname, "%s%c%s", drawPath, DIR_SEP, c_ptr);
+***************
+*** 836,845 ****
+     XClassHint classhints;
+  
+     *homeDir = *bootDir = *tgifDir = '\0';
+- #ifdef __EMX__
+-    *TMP_DIR = '\0';
+- #endif
+- 
+     debugNoPointerGrab = FALSE;
+  #ifdef _TGIF_DBG
+     if ((c_ptr=XGetDefault(mainDisplay, TOOL_NAME,
+--- 832,837 ----
+***************
+*** 1410,1433 ****
+     if (*bootDir == '\0') {
+        GetWorkingDirectory(bootDir, sizeof(bootDir));
+     }
+- #ifdef __EMX__
+-    //   if (NULL == (strcpy(TMP_DIR,getenv("TMP"))))
+-    if ( strcpy(TMP_DIR,getenv("TMP")) == NULL)
+-        strcpy(TMP_DIR,"/");  
+-    else
+-      {
+-        char * fixer;
+-        fixer=TMP_DIR;
+-        while (*fixer != '\0')
+- 	 {
+- 	   if (*fixer == '\\')
+- 	     *fixer = '/';
+- 	   fixer = fixer + 1;
+- 	 }
+-        strcat(TMP_DIR,"/");
+-      }
+-    fprintf(stderr,"tmpdir:%s\n",TMP_DIR);
+- #endif
+     sizehints.flags = PPosition | PSize | PMinSize;
+     sizehints.x = 0;
+     sizehints.y = 0;
+--- 1402,1407 ----
+diff -rc ./setup.e \tmp\tgif-4.1.15/setup.e
+*** ./setup.e	Sat Jun  5 13:51:26 1999
+--- \tmp\tgif-4.1.15/setup.e	Sat Jan  9 17:30:26 1999
+***************
+*** 133,142 ****
+  extern char	bootDir[];
+  extern char	homeDir[];
+  extern char	tgifDir[];
+- 
+- #ifdef __EMX__
+- extern char     TMP_DIR[];
+- #endif
+  
+  extern int	symPathNumEntries;
+  extern char	* * symPath;
+--- 133,138 ----
+diff -rc ./special.c \tmp\tgif-4.1.15/special.c
+*** ./special.c	Sun Jun  6 15:18:48 1999
+--- \tmp\tgif-4.1.15/special.c	Mon May 10 07:53:44 1999
+***************
+*** 1077,1083 ****
+           "( <CR>: accept, <ESC>: cancel )");
+     Dialog(msg, gszMsgBox, fname);
+     if (*fname == '\0') return;
+!    if (abspath(fname)) {
+        strcpy(full_fname, fname);
+     } else {
+        sprintf(full_fname, "%s%c%s", curDirIsLocal ? curDir : curLocalDir,
+--- 1077,1083 ----
+           "( <CR>: accept, <ESC>: cancel )");
+     Dialog(msg, gszMsgBox, fname);
+     if (*fname == '\0') return;
+!    if (*fname == DIR_SEP) {
+        strcpy(full_fname, fname);
+     } else {
+        sprintf(full_fname, "%s%c%s", curDirIsLocal ? curDir : curLocalDir,
+***************
+*** 1592,1598 ****
+  
+     if (*fname == '\0') return;
+  
+!    if (abspath(fname)) {
+        strcpy(full_fname, fname);
+     } else {
+        sprintf(full_fname, "%s%c%s", curDirIsLocal ? curDir : curLocalDir,
+--- 1592,1598 ----
+  
+     if (*fname == '\0') return;
+  
+!    if (*fname == DIR_SEP) {
+        strcpy(full_fname, fname);
+     } else {
+        sprintf(full_fname, "%s%c%s", curDirIsLocal ? curDir : curLocalDir,
+diff -rc ./stk.c \tmp\tgif-4.1.15/stk.c
+*** ./stk.c	Sun Jun  6 15:20:44 1999
+--- \tmp\tgif-4.1.15/stk.c	Mon May 24 06:53:24 1999
+***************
+*** 255,261 ****
+     is_pin = (topSel->obj->type==OBJ_PIN);
+  
+     strcpy(sym_name, topSel->obj->detail.r->s);
+!    if (abspath(sym_name)) {
+        char *psz=UtilStrRChr(sym_name, DIR_SEP), *psz1=sym_name;
+  
+        *psz = '\0';
+--- 255,261 ----
+     is_pin = (topSel->obj->type==OBJ_PIN);
+  
+     strcpy(sym_name, topSel->obj->detail.r->s);
+!    if (*sym_name == DIR_SEP) {
+        char *psz=UtilStrRChr(sym_name, DIR_SEP), *psz1=sym_name;
+  
+        *psz = '\0';
+diff -rc ./tgif.c \tmp\tgif-4.1.15/tgif.c
+*** ./tgif.c	Sun Jun  6 15:22:20 1999
+--- \tmp\tgif-4.1.15/tgif.c	Mon May 24 06:53:26 1999
+***************
+*** 219,225 ****
+     if (cmdLineOpenDisplay) {
+        char file_path[MAXPATHLENGTH+1];
+  
+!       if (abspath(full_name)) {
+           strcpy(file_path, full_name);
+        } else {
+           sprintf(file_path, "%s%c%s", curDir, DIR_SEP, full_name);
+--- 219,225 ----
+     if (cmdLineOpenDisplay) {
+        char file_path[MAXPATHLENGTH+1];
+  
+!       if (*full_name == DIR_SEP) {
+           strcpy(file_path, full_name);
+        } else {
+           sprintf(file_path, "%s%c%s", curDir, DIR_SEP, full_name);
+diff -rc ./Tgif.tmpl \tmp\tgif-4.1.15/Tgif.tmpl
+*** ./Tgif.tmpl	Sat Jun  5 13:28:52 1999
+--- \tmp\tgif-4.1.15/Tgif.tmpl	Fri Apr  9 14:19:08 1999
+***************
+*** 51,64 ****
+  LOCALEDIR	= /usr/share/locale
+  DIRDEFINES	= -DTGIF_PATH=\"$(TGIFDIR)\" -DPSFILE_MOD=0664 \@@\
+                    -DLOCALEDIR=\"$(LOCALEDIR)\" \@@\
+!                   -DTELEPORT_ATTR=\"warp_to=\" \@@\
+                    -DLAUNCH_ATTR=\"launch=\" -DEXEC_ATTR=\"exec=\"
+  EXTDEFINES	= -DEPSF_FILE_EXT=\"eps\" -DPS_FILE_EXT=\"ps\" \@@\
+                    -DXBM_FILE_EXT=\"xbm\" -DXPM_FILE_EXT=\"xpm\" \@@\
+                    -DOBJ_FILE_EXT=\"obj\" -DSYM_FILE_EXT=\"sym\" \@@\
+                    -DTEXT_FILE_EXT=\"txt\" -DPIN_FILE_EXT=\"pin\"
+  MISCDEFINES	= -D_BACKGROUND_DONT_FORK -D_USE_XDRAWPOINT_TO_PUT_A_POINT
+! MOREDEFINES	= -D_NO_DL_SUPPORT -DA4PAPER -D_NO_LSTAT
+  
+  XCOMM ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  XCOMM Please see Imakefile for more defines to be added to MOREDEFINES above
+--- 51,64 ----
+  LOCALEDIR	= /usr/share/locale
+  DIRDEFINES	= -DTGIF_PATH=\"$(TGIFDIR)\" -DPSFILE_MOD=0664 \@@\
+                    -DLOCALEDIR=\"$(LOCALEDIR)\" \@@\
+!                   -DTELEPORT_ATTR=\"warp_to=\" -DTMP_DIR=\"/tmp/\" \@@\
+                    -DLAUNCH_ATTR=\"launch=\" -DEXEC_ATTR=\"exec=\"
+  EXTDEFINES	= -DEPSF_FILE_EXT=\"eps\" -DPS_FILE_EXT=\"ps\" \@@\
+                    -DXBM_FILE_EXT=\"xbm\" -DXPM_FILE_EXT=\"xpm\" \@@\
+                    -DOBJ_FILE_EXT=\"obj\" -DSYM_FILE_EXT=\"sym\" \@@\
+                    -DTEXT_FILE_EXT=\"txt\" -DPIN_FILE_EXT=\"pin\"
+  MISCDEFINES	= -D_BACKGROUND_DONT_FORK -D_USE_XDRAWPOINT_TO_PUT_A_POINT
+! MOREDEFINES	=
+  
+  XCOMM ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  XCOMM Please see Imakefile for more defines to be added to MOREDEFINES above
+***************
+*** 67,76 ****
+  DEPLIBS		= $(DEPXLIB)
+  LOCAL_LIBRARIES	= $(XLIB)
+  XCOMM LOCAL_LIBRARIES	= $(XMULIB) $(XTOOLLIB) $(XLIB)
+! XCOMM SYS_LIBRARIES	= -ldl -lm
+! SYS_LIBRARIES	= -lm -lran48
+  
+  XCOMM ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^	XCOMM
+! XCOMM This file has been tested under (uname -s -r -m):	XCOMM
+! XCOMM		OS/2 2 i386				XCOMM
+  XCOMM ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^	XCOMM
+--- 67,76 ----
+  DEPLIBS		= $(DEPXLIB)
+  LOCAL_LIBRARIES	= $(XLIB)
+  XCOMM LOCAL_LIBRARIES	= $(XMULIB) $(XTOOLLIB) $(XLIB)
+! SYS_LIBRARIES	= -ldl -lm
+! XCOMM SYS_LIBRARIES	= -lm
+  
+  XCOMM ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^	XCOMM
+! XCOMM This file has been tested under (uname -s -r):	XCOMM
+! XCOMM		Linux 2.0.35				XCOMM
+  XCOMM ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^	XCOMM
+Only in .: Tgif.tmpl-emx
+diff -rc ./tgifdefs.h \tmp\tgif-4.1.15/tgifdefs.h
+*** ./tgifdefs.h	Sun Jun  6 13:50:36 1999
+--- \tmp\tgif-4.1.15/tgifdefs.h	Fri Apr  2 23:23:48 1999
+***************
+*** 134,145 ****
+  #include <X11/Xlocale.h>
+  #endif /* ~_NO_LOCALE_SUPPORT */
+  
+- #ifdef __EMX__
+- #define abspath(thepath) (*thepath==DIR_SEP || (strlen(thepath)>2 && thepath[1]==':' && thepath[2]==DIR_SEP))
+- #else
+- #define abspath(thepath) (*thepath==DIR_SEP)
+- #endif /*EMX*/
+- 
+  #include "const.h"
+  #include "types.h"
+  
+--- 134,139 ----
